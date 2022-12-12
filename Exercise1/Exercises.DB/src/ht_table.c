@@ -30,11 +30,11 @@ int HT_CreateFile(char *fileName,  int buckets){
 	HT_info info;
 	int fileDescriptor;
 	int error;
-	char* data;		char* hashTableData;
-	BF_Block* block;	BF_Block_Init(&block);
+	char* data;					char* hashTableData;
+	BF_Block* block;			BF_Block_Init(&block);
 	BF_Block* hashTableBlock;	BF_Block_Init(&hashTableBlock);
 
-	int blockCounter;	int oldBlockCounter;
+	int blockCounter;			int oldBlockCounter;
 
 	error = TC(BF_CreateFile(fileName));
 	if (error != 0 ) { return -1; }

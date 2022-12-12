@@ -20,7 +20,7 @@ int TC(BF_ErrorCode error);
 
 typedef struct {
     // Να το συμπληρώσετε
-    int overflow;
+    int nextBlock;
 	int recordsCount;
 } HT_block_info;
 

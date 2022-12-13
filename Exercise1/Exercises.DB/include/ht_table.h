@@ -12,7 +12,7 @@ typedef struct {
     bool isHeapFile;
     bool isHashFile;
     int recordsPerBlock;
-
+    int* hashTable;
 } HT_info;
 
 int TC(BF_ErrorCode error);
@@ -22,6 +22,8 @@ typedef struct {
     // Να το συμπληρώσετε
     int overflow;
 	int recordsCount;
+    int currentRecords;
+    int nextBlock;
 } HT_block_info;
 
 /*Η συνάρτηση HT_CreateFile χρησιμοποιείται για τη δημιουργία

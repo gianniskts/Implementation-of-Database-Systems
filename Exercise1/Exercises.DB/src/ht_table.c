@@ -162,17 +162,21 @@ int HT_CreateFile(char *fileName,  int buckets){
 	BF_AllocateBlock(fileDescriptor, block); // Allocate the first block
 
 	// Create a HT_info struct to write to the first block
-	HT_info info; 
+	HT_info info;
 	info.fileDesc = fileDescriptor;  // Write the file descriptor
 	info.numBuckets = buckets;		// Write the number of buckets
 	info.isHashFile = true; 	   // Write that this is a Hash File
 	info.isHeapFile = false;  	  // Write that this is not a Heap File
 	info.recordsPerBlock = (sizeof(char) * BF_BLOCK_SIZE - sizeof(HT_block_info)) / (sizeof(Record));
 	
+	int totalSizeOfBuckets = buckets * (sizeof(int));
+	int hashTableSize = ( sizeof(char) * BF_BLOCK_SIZE - sizeof(HT_info) );
+
+	assert(totalSizeOfBuckets <= hashTableSize);
+
+	info.hashTable = malloc(sizeof(int) * buckets);
 	// Get the data of the first block
 	char* data = BF_Block_GetData(block);
-	memcpy(data, &info, sizeof(HT_info)); // Write the HT_info struct to the first block
-	data += sizeof(HT_info); // Move the pointer to the next position
 
 	// Allocate momory for the buckets
 	for (int i=0; i<buckets; i++) {
@@ -180,24 +184,31 @@ int HT_CreateFile(char *fileName,  int buckets){
 		BF_Block_Init(&bucket);
 		BF_AllocateBlock(fileDescriptor, bucket); // Allocate a block for the bucket
 
-		HT_block_info info; // Create a HT_block_info struct to write to the bucket
-		info.overflow = -1; // The new bucket doesn't have a overflow
-		info.recordsCount = (sizeof(char) * BF_BLOCK_SIZE - sizeof(HT_block_info)) / (sizeof(Record)); // And can fit this many records inside
+		HT_block_info blockInfo; // Create a HT_block_info struct to write to the bucket
+		blockInfo.overflow = -1; // The new bucket doesn't have a overflow
+		blockInfo.recordsCount = (sizeof(char) * BF_BLOCK_SIZE - sizeof(HT_block_info)) / (sizeof(Record)); // And can fit this many records inside
+		blockInfo.currentRecords = 0; // Has no records inside
+		blockInfo.nextBlock = -1; // Has no next block
 
 		char* bucketData = BF_Block_GetData(bucket);  	   // Get the data of the bucket
 		memcpy(bucketData, &info, sizeof(HT_block_info)); // Write the HT_block_info struct to the bucket
 
+		// last bucket is in position counter-1. so hashTable[i] = counter-1
 		int newBucketIn; BF_GetBlockCounter(fileDescriptor, &newBucketIn); // Get the position of the bucket
 		newBucketIn--; // Decrease it by one
-
-		memcpy(data, &newBucketIn, sizeof(int)); // Write the position of the bucket to the hashTable in the first block
-		data += sizeof(int); // Move the pointer to the next position
+		
+		info.hashTable[i] = newBucketIn;
 
 		BF_Block_SetDirty(bucket); 	 // Mark the block as dirty
 		BF_UnpinBlock(bucket); 		// Unpin the block because we don't need it anymore
 		BF_Block_Destroy(&bucket); // Destroy the block
 	}
 
+	memcpy(data, &info, sizeof(HT_info)); // Write the HT_info struct to the first block
+	
+	BF_Block_SetDirty(block);
+	BF_UnpinBlock(block);
+	
 	// close the file
 	BF_CloseFile(fileDescriptor);
 	BF_Block_Destroy(&block);
@@ -233,13 +244,36 @@ HT_info* HT_OpenFile(char *fileName){
 
 int HT_CloseFile( HT_info* HT_info ){
 	int fileDescriptor = HT_info->fileDesc; // Get the file descriptor
-	BF_CloseFile(fileDescriptor); // Close the file
+	BF_Block* block;	BF_Block_Init(&block);
+	
+
+	BF_GetBlock(fileDescriptor, 0, &block); // Get the first block
+	char* data = BF_Block_GetData(block); 	// Get the data of the first block
+	memcpy(data, HT_info, sizeof(HT_info)); // Copy the data from the HT_info struct to the first block
+	
+
 	free(HT_info); // Free the memory of the HT_info struct
+	BF_CloseFile(fileDescriptor); // Close the file
 
     return 0;
 }
 
+int hashFunc(int key, int buckets) {
+	return key % buckets;
+}
+
 int HT_InsertEntry(HT_info* ht_info, Record record){
+	// BF_Block* block; 		// Create a block
+	// BF_Block_Init(&block); // Initialize the block
+	// int fileDescriptor = ht_info->fileDesc; // Get the file descriptor
+	// BF_AllocateBlock(fileDescriptor, block); // Allocate a block for the new record
+	// int hash = hashFunc(record.id, ht_info->numBuckets); // Get the hash of the record
+
+	// int numOfBlock = (hash*sizeof(int))/BF_BLOCK_SIZE+1; // Get the number of the block that contains the bucket
+	// BF_GetBlock(fileDescriptor, numOfBlock, block); // Get the block that contains the bucket
+	// char* data = BF_Block_GetData(block); // Get the data of the block
+	// int temp = memcpy(&temp, data+sizeof(int), sizeof(int)); // Get the position of the bucket
+	
     return 0;
 }
 

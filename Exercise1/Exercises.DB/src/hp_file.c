@@ -23,7 +23,7 @@ int HP_CreateFile(char *fileName){
 	_____________________________________________________
 	|						|							|
 	|						|							|
-	|	HP Info Header		|	nextBlock				|
+	|	HP Info Header		|		nextBlock			|
 	|		(HP_Info)		|			(int)			|
 	|						|							|
 	-----------------------------------------------------
@@ -59,7 +59,7 @@ int HP_CreateFile(char *fileName){
 	info.headerPosition = oldBlockCounter;
 	info.isHash = false;
 	info.isHeapFile = true;
-	info.recordsPerBlock = ( BF_BLOCK_SIZE - sizeof(int) * 2 ) / sizeof(Record);
+	info.recordsPerBlock = ( sizeof(char) * BF_BLOCK_SIZE - sizeof(HP_block_info ) ) / sizeof(Record);
 	info.lastBlock = -1;
 
 	printf("Records per block = %d\n", info.recordsPerBlock);
@@ -121,13 +121,20 @@ HP_info* HP_OpenFile(char *fileName){
 
 
 int HP_CloseFile( HP_info* hp_info ){
-	int fileDescriptor;
-    int error;
+	int fileDescriptor = hp_info->fileDesc; // Get the file descriptor
+	BF_Block* block;	BF_Block_Init(&block);
+	int error;	
 
-	fileDescriptor = hp_info->fileDesc;
-	free(hp_info);
+	BF_GetBlock(fileDescriptor, 0, block); // Get the first block
+	char* data = BF_Block_GetData(block); 	// Get the data of the first block
+	memcpy(data, hp_info, sizeof(hp_info)); // Copy the data from the hp_info struct to the first block
 
 	error = TC(BF_CloseFile(fileDescriptor));
+
+	BF_UnpinBlock(block);
+
+	free(hp_info); // Free the memory of the hp_info struct
+	
 	if (error == -1) return -1;
 	
 	return 0;
@@ -146,15 +153,15 @@ int HP_InsertEntry(HP_info* hp_info, Record record){
 	---------------------------------------------------------------------------------
 
 	________________________________________________________________________________
-	|			|			|		|					|							|
-	|			|			|		|					|							|
-	|	Rec[0]	| 	Rec[1] 	|	...	| recordsInBlock	|	Pointer to next block	|
-	|	(Rec)	|			|		|		(int)		|			(int)			|
-	|			|			|		|					|							|
+	|			|			|		|												|
+	|			|			|		|												|
+	|	Rec[0]	| 	Rec[1] 	|	...	| 				HP__Block_info					|
+	|	(Rec)	|			|		|		(recordsCount, pointer to block)		|
+	|			|			|		|												|
 	L_______________________________________________________________________________|
 	^								^					^							^
 	|								|					|							|
-	data				data + BS - 2 * sizeof(int)		data+BS-sizeof(int) 	data + BLOCK_SIZE 
+	data				data + BS - sizeof(HP_Block_info)
 	(after Block_GetData)
 */
 	int fileDescriptor;
@@ -177,34 +184,41 @@ int HP_InsertEntry(HP_info* hp_info, Record record){
 		error = TC( BF_AllocateBlock(fileDescriptor, block) );
 		error = TC( BF_GetBlockCounter(fileDescriptor, &blockCounter));
 
-
 		// Read metadata to update the pointer to the next block
 		error = TC(BF_GetBlock(fileDescriptor, hp_info->headerPosition, block));
 		data = BF_Block_GetData(block);
 		HP_info* new_info = (HP_info*) data;
-		// new_info.lastBlock = blockCounter - 1;
+		
+		// Connect header to last block 
 		new_info->lastBlock = blockCounter - 1;
+
 		// printf("Now the header points to the last block which is: %d\n", new_info->lastBlock);
 		// memcpy(data, &new_info, sizeof(HP_info));
-
+	
+		// Connect header to next block
 		data += sizeof(HP_info);
 		nextBlock = blockCounter - 1;
+
 		// Header block now points to new allocated block
 		memcpy(data, &nextBlock, sizeof(int));
-		// printf("Header now points to block: %d\n", nextBlock);
 
 		assert(nextBlock == new_info->lastBlock);
 
 		BF_Block_SetDirty(block);
 		BF_UnpinBlock(block);
 
+		hp_info->lastBlock = blockCounter - 1;
 		// Now get the new allocated block, saved at blockCounter - 1 position
 		error = TC(BF_GetBlock(fileDescriptor, blockCounter-1, block));
 		data = BF_Block_GetData(block);
 		// printf("Data is sitting at: %p for segment %d\n", data, blockCounter-1);
 
-		int recordsInBlock = 1;
-		int newBlock = -1;
+		// int recordsInBlock = 1;
+		// int newBlock = -1;
+
+		HP_block_info blockInfo;
+		blockInfo.nextBlock = -1;
+		blockInfo.currentRecords = 1;
 
 		// printf("Getting data pointer for block: %d\n", blockCounter-1);
 
@@ -213,26 +227,25 @@ int HP_InsertEntry(HP_info* hp_info, Record record){
 		Record recInserted =  *( (Record*) data);
 
 		// Go to the end minus 2 ints, to place how many records the block stores
-		data += sizeof(char) * BF_BLOCK_SIZE - (2*sizeof(int));
-		memcpy(data, &recordsInBlock, sizeof(int));
-		int recs = *((int*) data);
-		// printf("Recs In Block saved at: %p\n", data);
+		data += sizeof(char) * BF_BLOCK_SIZE - sizeof(HP_block_info);
+		memcpy(data, &blockInfo, sizeof(HP_block_info));
 
-		assert(recs == 1);
+		// hp_info->
+		// assert(recs == 1);
 
 		// Go to the end minus 1 int (so 1 int forward from before)
 		// To place pointer to new block
 
-		data += sizeof(int);
-		memcpy(data, &newBlock, sizeof(int));
+		// data += sizeof(int);
+		// memcpy(data, &newBlock, sizeof(int));
 		// printf("NextBlockPointer saved at: %p\n", data);
 
-		int nextBlockPointer = *((int*) data);
-		assert(nextBlockPointer == -1);
+		// int nextBlockPointer = *((int*) data);
+		// assert(nextBlockPointer == -1);
 
-		assert (nextBlockPointer == newBlock);
-		assert (recordsInBlock == recs);
-		assert (recInserted.id == record.id);
+		// assert (nextBlockPointer == newBlock);
+		// assert (recordsInBlock == recs);
+		// assert (recInserted.id == record.id);
 		
 		printf("Successfuly inserted: \n");
 		printf("%d \t\t %s \t %s \t %s \n", record.id, record.name, record.surname, record.city);

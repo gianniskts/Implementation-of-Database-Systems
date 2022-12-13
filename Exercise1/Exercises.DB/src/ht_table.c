@@ -278,6 +278,7 @@ int HT_InsertEntry(HT_info* ht_info, Record record){
 	int fileDescriptor = ht_info->fileDesc; // Get the file descriptor
 	int hash = hashFunc(record.id, ht_info->numBuckets); // Get the hash of the record
 	int bucket = ht_info->hashTable[hash]; // Get the number of the bucket that contains the record
+	int returnBlockId;
 
 	BF_GetBlock(fileDescriptor, bucket, block);
 	char* blockData = BF_Block_GetData(block);
@@ -294,6 +295,11 @@ int HT_InsertEntry(HT_info* ht_info, Record record){
 		char* data = blockData +  sizeof(HT_block_info) + recordsInBlock * (sizeof(Record));
 		memcpy(data, &record, sizeof(Record));
 		blockInfoRead->currentRecords++;
+		BF_Block_SetDirty(block); // Mark the block as dirty
+		
+		// return the block id
+		returnBlockId = bucket;
+
 	} else {
 		printf("Allocating new block\n");
 		// If records doesn't fit in block, create a new block and place it there
@@ -317,20 +323,61 @@ int HT_InsertEntry(HT_info* ht_info, Record record){
 		BF_Block_SetDirty(newBlock); // Mark the new block as dirty
 		BF_UnpinBlock(newBlock); // Unpin the new block because we don't need it anymore
 		BF_Block_Destroy(&newBlock); // Destroy the new block
-
+		
 		ht_info->hashTable[hash] = blockCounter; // Set the bucket to the new block
 		
-		printf("\n");
+		printf("Header file for bucket %d now points to: %d\n", hash, blockCounter);
+
+		// retunrBlockId is the id of the last inserted block (saved in blockCounter)
+		returnBlockId = blockCounter;
 	}
+	BF_UnpinBlock(block); // Unpin the block because we don't need it anymore
+	BF_Block_Destroy(&block); // Destroy the block
 	
 	
-    return 0;
+    return returnBlockId; // Return the block id
 }
 
-int HT_GetAllEntries(HT_info* ht_info, void *value ){
+int HT_GetAllEntries(HT_info* ht_info, int* value ){
+	int fileDescriptor = ht_info->fileDesc; // Get the file descriptor
+	BF_Block* block; 		// Create a block
+	BF_Block_Init(&block); // Initialize the block
+	BF_Block* bucketBlock;
+	BF_Block_Init(&bucketBlock);
+	int blocksRead = 0;
+	int hashValue = hashFunc((int) * ((int*) value), ht_info->numBuckets); // Get the hash of the value
+	int bucket = ht_info->hashTable[hashValue];
+
+	
+	// Get block number of last allocated block ( = blockCounter - 1)
+	BF_GetBlock(fileDescriptor, bucket, block);
+	char* blockData = BF_Block_GetData(block);
+	HT_block_info* info = (HT_block_info*) blockData;
+	
+
+	while ( true ) {
+		// Iterate through all records of the bucket
+		blocksRead++;
+		for(int i = 0; i < info->currentRecords; i++) {
+			// Check every record in block
+			char* data = blockData +  sizeof(HT_block_info) + i * (sizeof(Record));
+			Record rec = (Record) *( (Record*) data); // Cast the data to Record
+			if (rec.id == (int) * ((int*)value) ) {
+				printf("Found\n");
+			}
+		}
+		// Check if there is a next block (overflow)
+		if ( info->nextBlock == -1) 
+			break;
+		else {
+			BF_GetBlock(fileDescriptor, info->nextBlock, block);
+			blockData = BF_Block_GetData(block);
+			info = (HT_block_info*) blockData;
+		}
+	}
+
     return 0;
 }
-
 
 uint hash_string(void* value) {
 	// djb2 hash function, απλή, γρήγορη, και σε γενικές γραμμές αποδοτική

@@ -16,6 +16,13 @@ typedef struct {
     int lastBlock;
 } HP_info;
 
+typedef struct {
+    int currentRecords;
+    int recordsCount;
+    int nextBlock;
+} HP_block_info;
+
+
 // Tested Call, to make calling and debuggin easier
 int TC(BF_ErrorCode error);
 

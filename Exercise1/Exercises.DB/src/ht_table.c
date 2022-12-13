@@ -185,19 +185,24 @@ int HT_CreateFile(char *fileName,  int buckets){
 		BF_AllocateBlock(fileDescriptor, bucket); // Allocate a block for the bucket
 
 		HT_block_info blockInfo; // Create a HT_block_info struct to write to the bucket
-		blockInfo.overflow = -1; // The new bucket doesn't have a overflow
+		// blockInfo.overflow = -1; // The new bucket doesn't have a overflow
 		blockInfo.recordsCount = (sizeof(char) * BF_BLOCK_SIZE - sizeof(HT_block_info)) / (sizeof(Record)); // And can fit this many records inside
 		blockInfo.currentRecords = 0; // Has no records inside
 		blockInfo.nextBlock = -1; // Has no next block
-
+		
 		char* bucketData = BF_Block_GetData(bucket);  	   // Get the data of the bucket
-		memcpy(bucketData, &info, sizeof(HT_block_info)); // Write the HT_block_info struct to the bucket
+		memcpy(bucketData, &blockInfo, sizeof(HT_block_info)); // Write the HT_block_info struct to the bucket
 
+		printf("Can hold: %d, holds: %d\n", blockInfo.recordsCount, blockInfo.currentRecords);
+		assert(blockInfo.currentRecords == 0);
+		
 		// last bucket is in position counter-1. so hashTable[i] = counter-1
 		int newBucketIn; BF_GetBlockCounter(fileDescriptor, &newBucketIn); // Get the position of the bucket
 		newBucketIn--; // Decrease it by one
 		
 		info.hashTable[i] = newBucketIn;
+		printf("Created bucket for [%d], saved in block: %d\n", i, info.hashTable[i]);
+
 
 		BF_Block_SetDirty(bucket); 	 // Mark the block as dirty
 		BF_UnpinBlock(bucket); 		// Unpin the block because we don't need it anymore
@@ -205,6 +210,8 @@ int HT_CreateFile(char *fileName,  int buckets){
 	}
 
 	memcpy(data, &info, sizeof(HT_info)); // Write the HT_info struct to the first block
+
+
 	
 	BF_Block_SetDirty(block);
 	BF_UnpinBlock(block);
@@ -234,6 +241,7 @@ HT_info* HT_OpenFile(char *fileName){
 
 	// Copy the data from the first block to the returning HT_info struct
 	memcpy(toReturn, infoSaved, sizeof(HT_info)); 
+	printf("Opened file\n");
 
 	BF_UnpinBlock(block); 	   // Unpin the first block because we don't need it anymore
 	BF_Block_Destroy(&block); // Destroy the block
@@ -247,10 +255,11 @@ int HT_CloseFile( HT_info* HT_info ){
 	BF_Block* block;	BF_Block_Init(&block);
 	
 
-	BF_GetBlock(fileDescriptor, 0, &block); // Get the first block
+	BF_GetBlock(fileDescriptor, 0, block); // Get the first block
 	char* data = BF_Block_GetData(block); 	// Get the data of the first block
 	memcpy(data, HT_info, sizeof(HT_info)); // Copy the data from the HT_info struct to the first block
 	
+	BF_UnpinBlock(block);
 
 	free(HT_info); // Free the memory of the HT_info struct
 	BF_CloseFile(fileDescriptor); // Close the file
@@ -263,16 +272,57 @@ int hashFunc(int key, int buckets) {
 }
 
 int HT_InsertEntry(HT_info* ht_info, Record record){
-	// BF_Block* block; 		// Create a block
-	// BF_Block_Init(&block); // Initialize the block
-	// int fileDescriptor = ht_info->fileDesc; // Get the file descriptor
-	// BF_AllocateBlock(fileDescriptor, block); // Allocate a block for the new record
-	// int hash = hashFunc(record.id, ht_info->numBuckets); // Get the hash of the record
+	
+	BF_Block* block; 		// Create a block
+	BF_Block_Init(&block); // Initialize the block
+	int fileDescriptor = ht_info->fileDesc; // Get the file descriptor
+	int hash = hashFunc(record.id, ht_info->numBuckets); // Get the hash of the record
+	int bucket = ht_info->hashTable[hash]; // Get the number of the bucket that contains the record
 
-	// int numOfBlock = (hash*sizeof(int))/BF_BLOCK_SIZE+1; // Get the number of the block that contains the bucket
-	// BF_GetBlock(fileDescriptor, numOfBlock, block); // Get the block that contains the bucket
-	// char* data = BF_Block_GetData(block); // Get the data of the block
-	// int temp = memcpy(&temp, data+sizeof(int), sizeof(int)); // Get the position of the bucket
+	BF_GetBlock(fileDescriptor, bucket, block);
+	char* blockData = BF_Block_GetData(block);
+	
+	HT_block_info* blockInfoRead = (HT_block_info *) blockData;
+	
+	printf("Record hashed in bucket: %d, saved in block: %d\n", hash, bucket);
+
+	int recordsInBlock = blockInfoRead->currentRecords;
+	printf("Block can hold: %d records, currently holds: %d\n", blockInfoRead->recordsCount, blockInfoRead->currentRecords);
+	// If records fits in block, just place it inside
+	if (recordsInBlock < blockInfoRead->recordsCount) {
+		printf("No overflow in bucket: %d saved in block: %d\n", hash, bucket );
+		char* data = blockData +  sizeof(HT_block_info) + recordsInBlock * (sizeof(Record));
+		memcpy(data, &record, sizeof(Record));
+		blockInfoRead->currentRecords++;
+	} else {
+		printf("Allocating new block\n");
+		// If records doesn't fit in block, create a new block and place it there
+		BF_Block* newBlock; 		// Create a block
+		BF_Block_Init(&newBlock); // Initialize the block
+		BF_AllocateBlock(fileDescriptor, newBlock); // Allocate a block for the new record
+		// Get block number of last allocated block ( = blockCounter - 1)
+		int blockCounter; BF_GetBlockCounter(fileDescriptor,&blockCounter ); // Get the number of the last allocated block
+		blockCounter--; // Get the number of the last allocated block
+		
+		char* newBlockData = BF_Block_GetData(newBlock); // Get the data of the new block
+		HT_block_info* newBlockInfo = (HT_block_info *) newBlockData; // Cast the data to HT_block_info
+		newBlockInfo->currentRecords = 1; // Set the current records to 1
+
+		// Connect newly allocated block with the previous block in place
+		newBlockInfo->nextBlock = bucket; // Set the next block to previous bucket (reverse chaining)		
+		newBlockInfo->recordsCount = (sizeof(char) * BF_BLOCK_SIZE  - sizeof(HT_block_info) )/ sizeof(Record); // Set the records count to the maximum number of records that can fit in a block
+		
+		char* data = newBlockData +  sizeof(HT_block_info); // Get the data of the new block
+		memcpy(data, &record, sizeof(Record)); // Copy the data from the record to the new block
+		BF_Block_SetDirty(newBlock); // Mark the new block as dirty
+		BF_UnpinBlock(newBlock); // Unpin the new block because we don't need it anymore
+		BF_Block_Destroy(&newBlock); // Destroy the new block
+
+		ht_info->hashTable[hash] = blockCounter; // Set the bucket to the new block
+		
+		printf("\n");
+	}
+	
 	
     return 0;
 }

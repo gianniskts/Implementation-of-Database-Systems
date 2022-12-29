@@ -8,7 +8,15 @@
 
 typedef struct {
     // Να το συμπληρώσετε
+    int fileDesc;
+    long int numBuckets;
+    bool isHeapFile;
+    bool isHashFile;
+    int recordsPerBlock;
+    int* hashTable;
 } SHT_info;
+
+int TC(BF_ErrorCode error);
 
 typedef struct {
     // Να το συμπληρώσετε

@@ -210,8 +210,6 @@ int HT_CreateFile(char *fileName,  int buckets){
 	}
 
 	memcpy(data, &info, sizeof(HT_info)); // Write the HT_info struct to the first block
-
-
 	
 	BF_Block_SetDirty(block);
 	BF_UnpinBlock(block);
@@ -241,6 +239,8 @@ HT_info* HT_OpenFile(char *fileName){
 
 	// Copy the data from the first block to the returning HT_info struct
 	memcpy(toReturn, infoSaved, sizeof(HT_info)); 
+	toReturn->fileDesc = fileDescriptor;
+
 	printf("Opened file\n");
 
 	BF_UnpinBlock(block); 	   // Unpin the first block because we don't need it anymore
@@ -254,12 +254,15 @@ int HT_CloseFile( HT_info* HT_info ){
 	int fileDescriptor = HT_info->fileDesc; // Get the file descriptor
 	BF_Block* block;	BF_Block_Init(&block);
 	
-
+	printf("HT close\n");
 	BF_GetBlock(fileDescriptor, 0, block); // Get the first block
 	char* data = BF_Block_GetData(block); 	// Get the data of the first block
 	memcpy(data, HT_info, sizeof(HT_info)); // Copy the data from the HT_info struct to the first block
 	
 	BF_UnpinBlock(block);
+
+	free(HT_info->hashTable);
+	BF_Block_Destroy(&block);
 
 	free(HT_info); // Free the memory of the HT_info struct
 	BF_CloseFile(fileDescriptor); // Close the file
@@ -342,8 +345,7 @@ int HT_GetAllEntries(HT_info* ht_info, int* value ){
 	int fileDescriptor = ht_info->fileDesc; // Get the file descriptor
 	BF_Block* block; 		// Create a block
 	BF_Block_Init(&block); // Initialize the block
-	BF_Block* bucketBlock;
-	BF_Block_Init(&bucketBlock);
+	
 	int blocksRead = 0;
 	int hashValue = hashFunc((int) * ((int*) value), ht_info->numBuckets); // Get the hash of the value
 	int bucket = ht_info->hashTable[hashValue];
@@ -370,21 +372,17 @@ int HT_GetAllEntries(HT_info* ht_info, int* value ){
 		if ( info->nextBlock == -1) 
 			break;
 		else {
+			BF_UnpinBlock(block);
 			BF_GetBlock(fileDescriptor, info->nextBlock, block);
 			blockData = BF_Block_GetData(block);
 			info = (HT_block_info*) blockData;
 		}
 	}
 
-    return 0;
-}
+	BF_UnpinBlock(block);
+	BF_Block_Destroy(&block);
 
-uint hash_string(void* value) {
-	// djb2 hash function, απλή, γρήγορη, και σε γενικές γραμμές αποδοτική
-    uint hash = 5381;
-    for (char* s = value; *s != '\0'; s++)
-		hash = (hash << 5) + hash + *s;			// hash = (hash * 33) + *s. Το foo << 5 είναι γρηγορότερη εκδοχή του foo * 32.
-    return hash;
+    return blocksRead;
 }
 
 int HashStatistics (char* filename) {

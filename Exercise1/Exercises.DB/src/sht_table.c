@@ -156,8 +156,6 @@ int SHT_CloseSecondaryIndex( SHT_info* SHT_info ){
   return 0;
 }
 
-
-
 int SHT_SecondaryInsertEntry(SHT_info* sht_info, Record record, int block_id){
   int fileDescriptor = sht_info->fileDesc;
   int buckets = sht_info->numBuckets;

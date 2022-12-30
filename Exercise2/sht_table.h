@@ -3,9 +3,6 @@
 #include <record.h>
 #include <ht_table.h>
 
-
-
-
 typedef struct {
     // Να το συμπληρώσετε
     int fileDesc;
@@ -16,11 +13,15 @@ typedef struct {
     int* hashTable;
 } SHT_info;
 
-int TC(BF_ErrorCode error);
-
 typedef struct {
     // Να το συμπληρώσετε
+    int recordsCount;
+    int currentRecords;
+    int nextBlock;
+
 } SHT_block_info;
+
+unsigned int hash_string(void* value);
 
 /*Η συνάρτηση SHT_CreateSecondaryIndex χρησιμοποιείται για τη δημιουργία
 και κατάλληλη αρχικοποίηση ενός αρχείου δευτερεύοντος κατακερματισμού με

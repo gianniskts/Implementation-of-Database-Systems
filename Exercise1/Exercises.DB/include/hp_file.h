@@ -14,6 +14,7 @@ typedef struct {
     bool isHeapFile;
     bool isHash;
     int lastBlock;
+    int nextBlock;
 } HP_info;
 
 typedef struct {

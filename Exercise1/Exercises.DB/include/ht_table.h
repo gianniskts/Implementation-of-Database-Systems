@@ -3,6 +3,7 @@
 #include <record.h>
 #include <stdbool.h>
 
+#define MAX_BUCKETS 30
 
 
 typedef struct {
@@ -12,7 +13,8 @@ typedef struct {
     bool isHeapFile;
     bool isHashFile;
     int recordsPerBlock;
-    int* hashTable;
+    // int* hashTable;
+    int hashTable[MAX_BUCKETS];
 } HT_info;
 
 int TC(BF_ErrorCode error);

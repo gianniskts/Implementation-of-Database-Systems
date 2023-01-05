@@ -14,11 +14,9 @@ typedef struct {
 } SHT_info;
 
 typedef struct {
-    // Να το συμπληρώσετε
-    int recordsCount;
-    int currentRecords;
-    int nextBlock;
-
+    int recordsCount;   // Max ammount it can hold
+    int currentRecords; // How many it currently holds
+    int nextBlock;      // Pointer to new block
 } SHT_block_info;
 
 unsigned int hash_string(void* value);

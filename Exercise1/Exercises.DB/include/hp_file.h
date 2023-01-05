@@ -17,6 +17,7 @@ typedef struct {
     int nextBlock;
 } HP_info;
 
+// Η δομή HP_block_info κρατάει μεταδεδομένα που σχετίζονται με το μπλοκ
 typedef struct {
     int currentRecords;
     int recordsCount;

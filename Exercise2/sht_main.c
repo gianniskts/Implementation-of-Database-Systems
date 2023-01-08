@@ -6,7 +6,7 @@
 #include "ht_table.h"
 #include "sht_table.h"
 
-#define RECORDS_NUM 30 // you can change it if you want
+#define RECORDS_NUM 100 // you can change it if you want
 #define FILE_NAME "data.db"
 #define INDEX_NAME "index.db"
 
@@ -43,6 +43,7 @@ int main() {
     }
     // Τυπώνουμε όλες τις εγγραφές με όνομα searchName
     printf("RUN PrintAllEntries for name %s\n",searchName);
+  
     SHT_SecondaryGetAllEntries(info,index_info,searchName);
 
     // Κλείνουμε το αρχείο κατακερματισμού και το δευτερεύον ευρετήριο

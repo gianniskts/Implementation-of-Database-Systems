@@ -163,6 +163,7 @@ int SHT_CloseSecondaryIndex( SHT_info* SHT_info ){
 	assert(data != NULL);
 	memcpy(data, SHT_info, sizeof(SHT_info)); // Copy the data from the SHT_info struct to the first block
 	
+	BF_Block_SetDirty(block);
 	error = TC(BF_UnpinBlock(block));
 	if (error != 0) return -1;
 	

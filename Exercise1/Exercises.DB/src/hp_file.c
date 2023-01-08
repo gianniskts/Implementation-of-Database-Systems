@@ -123,14 +123,16 @@ int HP_CloseFile( HP_info* hp_info ){
 	char* data = BF_Block_GetData(block); 	// Get the data of the first block
 	memcpy(data, hp_info, sizeof(hp_info)); // Copy the data from the hp_info struct to the first block
 
-	error = TC(BF_CloseFile(fileDescriptor));
+	BF_Block_SetDirty(block);
+	error = TC(BF_UnpinBlock(block));
+	if (error == -1) return -1;
 
-	BF_UnpinBlock(block);
 	BF_Block_Destroy(&block);
 
 	free(hp_info); // Free the memory of the hp_info struct
 	
 	if (error == -1) return -1;
+	error = TC(BF_CloseFile(fileDescriptor));
 	
 	return 0;
 }

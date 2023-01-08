@@ -192,6 +192,7 @@ int HT_CloseFile( HT_info* HT_info ){
 	char* data = BF_Block_GetData(block); 	// Get the data of the first block
 	memcpy(data, HT_info, sizeof(HT_info)); // Copy the data from the HT_info struct to the first block
 	
+	BF_Block_SetDirty(block);
 	error = TC(BF_UnpinBlock(block));
 	if (error != 0) return -1;
 

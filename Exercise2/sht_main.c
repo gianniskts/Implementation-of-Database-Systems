@@ -21,7 +21,7 @@
 
 
 int main() {
-    srand(12569874);
+    srand(12569875);
     BF_Init(LRU);
     // Αρχικοποιήσεις
     HT_CreateFile(FILE_NAME,10);

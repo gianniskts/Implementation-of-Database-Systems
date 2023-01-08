@@ -131,8 +131,8 @@ int HP_CloseFile( HP_info* hp_info ){
 
 	free(hp_info); // Free the memory of the hp_info struct
 	
-	if (error == -1) return -1;
 	error = TC(BF_CloseFile(fileDescriptor));
+	if (error == -1) return -1;
 	
 	return 0;
 }

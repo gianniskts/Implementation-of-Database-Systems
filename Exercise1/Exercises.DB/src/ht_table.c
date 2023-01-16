@@ -348,6 +348,7 @@ int HashStatistics (char* filename) {
 	int maxRecords = 0;
 	int minRecords = 1000000;
 	int averageRecords = 0;
+	int overflowBuckets = 0;
 	int buckets = ht_info->numBuckets;
 	int* hashTable = ht_info->hashTable;
 
@@ -356,6 +357,7 @@ int HashStatistics (char* filename) {
 		if (bucket == -1) continue;
 		int records = 0;
 		int blocksRead = 0;
+		int overflowCount = 0;
 		int error;
 		BF_Block* block; 		// Create a block
 		BF_Block_Init(&block); // Initialize the block
@@ -369,9 +371,10 @@ int HashStatistics (char* filename) {
 			blocksRead++;
 			records += info->currentRecords;
 			// Check if there is a next block (overflow)
-			if ( info->nextBlock == -1) 
+			if ( info->nextBlock == -1) {
+				overflowCount++;
 				break;
-			else {
+			} else {
 				error = TC(BF_UnpinBlock(block));
 				if (error != 0) return -1;
 				
@@ -389,7 +392,14 @@ int HashStatistics (char* filename) {
 		averageRecords = maxRecords + minRecords / 2;
 
 		printf("Bucket %d has maxRecords %d, minRecords %d, averageRecords %d\n", i, maxRecords, minRecords, averageRecords);
+		printf("Bucket %d has %d block(s)\n", i, blocksRead);
+
+		if (overflowCount > 0)	overflowBuckets++;
+		printf("Bucket %d has %d overflow block(s)\n", i, overflowCount);
 	}
+	printf("Number of overflow buckets: %d\n", overflowBuckets);
+	
+	return 0;
 }
 
 // int HashStatistics (char* filename) {

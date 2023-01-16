@@ -398,6 +398,9 @@ int HashStatistics (char* filename) {
 		printf("Bucket %d has %d overflow block(s)\n", i, overflowCount);
 	}
 	printf("Number of overflow buckets: %d\n", overflowBuckets);
+
+	// Close file
+	HT_CloseFile(ht_info);
 	
 	return 0;
 }

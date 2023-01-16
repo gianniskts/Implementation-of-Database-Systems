@@ -3,6 +3,8 @@
 #include <record.h>
 #include <ht_table.h>
 
+#define MAX_BUCKETS 30
+
 typedef struct {
     // Να το συμπληρώσετε
     int fileDesc;
@@ -10,7 +12,7 @@ typedef struct {
     bool isHeapFile;
     bool isHashFile;
     int recordsPerBlock;
-    int* hashTable;
+    int hashTable[MAX_BUCKETS];
 } SHT_info;
 
 typedef struct {
@@ -20,6 +22,8 @@ typedef struct {
 } SHT_block_info;
 
 unsigned int hash_string(void* value);
+
+int HashStatisticsSHT(char* filename);
 
 /*Η συνάρτηση SHT_CreateSecondaryIndex χρησιμοποιείται για τη δημιουργία
 και κατάλληλη αρχικοποίηση ενός αρχείου δευτερεύοντος κατακερματισμού με

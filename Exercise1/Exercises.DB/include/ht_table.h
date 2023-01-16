@@ -19,6 +19,16 @@ typedef struct {
 
 int TC(BF_ErrorCode error);
 
+int HashStatisticsHT(char* filename);
+
+typedef struct
+{
+	int min;
+	int max;
+} minmax;
+
+typedef minmax* MinMax;
+MinMax findMinAndMax(int arr[], int N);
 
 typedef struct {
     // Να το συμπληρώσετε

@@ -179,8 +179,8 @@ HT_info* HT_OpenFile(char *fileName){
 }
 
 
-int HT_CloseFile( HT_info* HT_info ){
-	int fileDescriptor = HT_info->fileDesc; // Get the file descriptor
+int HT_CloseFile( HT_info* HT_inf ){
+	int fileDescriptor = HT_inf->fileDesc; // Get the file descriptor
 	int error;
 
 	BF_Block* block;	BF_Block_Init(&block);
@@ -190,8 +190,18 @@ int HT_CloseFile( HT_info* HT_info ){
 	if (error != 0) return -1;
 
 	char* data = BF_Block_GetData(block); 	// Get the data of the first block
-	memcpy(data, HT_info, sizeof(HT_info)); // Copy the data from the HT_info struct to the first block
+	memcpy(data, HT_inf, sizeof(HT_info)); // Copy the data from the HT_info struct to the first block
 	
+	HT_info* other_info = (HT_info*) data;
+	
+	for(int i = 0; i < HT_inf->numBuckets; i++) {
+		other_info->hashTable[i] = HT_inf->hashTable[i];
+	}
+
+	HT_info* info = (HT_info*) data;
+	for(int i = 0; i < info->numBuckets; i++)
+		assert(info->hashTable[i] == other_info->hashTable[i]);
+
 	BF_Block_SetDirty(block);
 	error = TC(BF_UnpinBlock(block));
 	if (error != 0) return -1;
@@ -200,7 +210,7 @@ int HT_CloseFile( HT_info* HT_info ){
 	// free(HT_info->hashTable);
 	BF_Block_Destroy(&block);
 
-	free(HT_info); // Free the memory of the HT_info struct
+	free(HT_inf); // Free the memory of the HT_info struct
 
 	error = TC(BF_CloseFile(fileDescriptor)); // Close the file
 	if (error != 0) return -1;
@@ -307,6 +317,7 @@ int HT_GetAllEntries(HT_info* ht_info, int* value ){
 	while ( true ) {
 		// Iterate through all records of the bucket
 		blocksRead++;
+
 		for(int i = 0; i < info->currentRecords; i++) {
 			// Check every record in block
 			char* data = blockData +  sizeof(HT_block_info) + i * (sizeof(Record));
@@ -336,7 +347,7 @@ int HT_GetAllEntries(HT_info* ht_info, int* value ){
     return blocksRead;
 }
 
-int HashStatistics (char* filename) {
+int HashStatisticsHT(char* filename) {
 	// Open file
 	int fileDesc;
 	BF_ErrorCode code = BF_OpenFile(filename, &fileDesc);
@@ -368,72 +379,169 @@ int HashStatistics (char* filename) {
 
 	// Get number of buckets
 	int buckets = info->numBuckets;
+	int recordsCount = 0;
 
-	// Get number of records
-	int records = 0;
-	for (int i = 0; i < buckets; i++) {
-		records += info->hashTable[i];
+	// for each bucket:
+	// MIN,MID AND MAX NUMBER OF RECORDS in buckets
+	// Go through each bucket, get number of records
+	// all the chain through
+
+	BF_Block* blockOfBucket;
+	BF_Block_Init(&blockOfBucket);
+	printf("Buckets: %d\n", buckets);
+	// meso aritho blocks pou exei kathe bucket
+	int* blocksInBucket = malloc(buckets * sizeof(int));
+	int* recordsInBuckets = malloc(sizeof(int) * buckets);
+	// They begin with at least one block inside
+	// int blocksInBucket[10];
+	
+
+	for(int i = 0; i < buckets; i++) {
+		blocksInBucket[i] = 1;
+		// printf("Init with: %d\n", blocksInBucket[i]);
+		recordsInBuckets[i] = 0;
+	} 
+
+	for(int i = 0; i < buckets; i++) {
+		int error;
+
+
+		int bucket = info->hashTable[i];
+		// printf("Currently at bucket: %d starting in block: %d\n", i, info->hashTable[i]);
+		error = TC(BF_GetBlock(fileDesc, bucket, blockOfBucket));
+		if (error != 0) return -1;
+
+		void* data = BF_Block_GetData(blockOfBucket);
+		HT_block_info* blockInfo = (HT_block_info*) data;
+		
+		recordsCount += blockInfo->currentRecords;
+		recordsInBuckets[i] += blockInfo->currentRecords;
+		while( true ) {
+			if (blockInfo->nextBlock == -1)
+				break;
+			else {
+				blocksInBucket[i]++;
+				// printf("Now for bucket: %d counted: %d\n", i, blocksInBucket[i]);
+				error = TC(BF_UnpinBlock(blockOfBucket));
+				if (error != 0) return -1;
+
+				error = TC(BF_GetBlock(fileDesc, blockInfo->nextBlock, blockOfBucket));
+				if (error != 0) return -1;
+
+				data = BF_Block_GetData(blockOfBucket);
+				blockInfo = (HT_block_info*) data;
+				recordsCount += blockInfo->currentRecords;
+				recordsInBuckets[i] += blockInfo->currentRecords;
+			}
+		}
+
+		BF_UnpinBlock(blockOfBucket);
 	}
 
-	// Get number of blocks
-	int blocks = blockCounter;
+	BF_UnpinBlock(block);
+	BF_Block_Destroy(&blockOfBucket);
+	BF_Block_Destroy(&block);
+	
+	int totalNumberOfBlocks = 0;
+	for(int i = 0; i < buckets; i++)
+		totalNumberOfBlocks += blocksInBucket[i];
+	
+	printf("1. Blocks in the file: %d\n", blockCounter);
+	printf("2. Total number of records: %d\n", recordsCount);
+	printf("\t Average number of records per bucket: %d\n", recordsCount/buckets);
+	
+	MinMax ptr = findMinAndMax(recordsInBuckets, buckets);
+	printf("\t Min number of records in a block: %d\n", ptr->min);
+	printf("\t Max number of records in a block: %d\n", ptr->max);
 
-	// Get number of records per block
-	int recordsPerBlock = (sizeof(char) * BF_BLOCK_SIZE  - sizeof(HT_block_info) )/ sizeof(Record);
+	printf("3. Average number of blocks per bucket: %d\n", (totalNumberOfBlocks/buckets));
 
-	// Get number of blocks per bucket
-	int blocksPerBucket = blocks / buckets;
+	
+	// Plithos buckets pou exoun block yperxilisis
+	int nofBucketsWithOverflow = 0;
+	for(int i = 0; i < buckets; i++)
+		// If only one block has been allocated there is NO overflow
+		if (blocksInBucket[i] != 1) {
+			nofBucketsWithOverflow++;
+		}
 
-	// Get number of records per block per bucket
-	int recordsPerBlockPerBucket = recordsPerBlock / buckets;
+	printf("4. Total Number of buckets with overflow blocks: %d\n", nofBucketsWithOverflow);
+	
+	// kai posa block einai auta gia kathe block
+	for(int i = 0; i < buckets;i++) {
+		if (blocksInBucket[i] != 1) {
+			printf("\tBucket: %d has %d overflow blocks\n", i, blocksInBucket[i] - 1 );
+		}
+	}
+
+	free(blocksInBucket);
+	free(recordsInBuckets);
+	free(ptr);
+	// // Get number of records
+	// int records = 0;
+	// for (int i = 0; i < buckets; i++) {
+	// 	records += info->hashTable[i];
+	// }
+
+	// // Get number of blocks
+	// int blocks = blockCounter;
+
+	// // Get number of records per block
+	// int recordsPerBlock = (sizeof(char) * BF_BLOCK_SIZE  - sizeof(HT_block_info) )/ sizeof(Record);
+
+	// // Get number of blocks per bucket
+	// int blocksPerBucket = blocks / buckets;
+
+	// // Get number of records per block per bucket
+	// int recordsPerBlockPerBucket = recordsPerBlock / buckets;
 
 	// Get number of records per bucket
-	int averageRecordsPerBucket = records / buckets;
+	// int averageRecordsPerBucket = records / buckets;
 
-	// Get Min records per bucket
-	int minRecordsPerBucket = averageRecordsPerBucket;
-	for (int i = 0; i < buckets; i++) {
-		if (info->hashTable[i] < minRecordsPerBucket) {
-			minRecordsPerBucket = info->hashTable[i];
-		}
-	}
+	// // Get Min records per bucket
+	// int minRecordsPerBucket = averageRecordsPerBucket;
+	// for (int i = 0; i < buckets; i++) {
+	// 	if (info->hashTable[i] < minRecordsPerBucket) {
+	// 		minRecordsPerBucket = info->hashTable[i];
+	// 	}
+	// }
 
-	// Get Max records per bucket
-	int maxRecordsPerBucket = averageRecordsPerBucket;
-	for (int i = 0; i < buckets; i++) {
-		if (info->hashTable[i] > maxRecordsPerBucket) {
-			maxRecordsPerBucket = info->hashTable[i];
-		}
-	}
+	// // Get Max records per bucket
+	// int maxRecordsPerBucket = averageRecordsPerBucket;
+	// for (int i = 0; i < buckets; i++) {
+	// 	if (info->hashTable[i] > maxRecordsPerBucket) {
+	// 		maxRecordsPerBucket = info->hashTable[i];
+	// 	}
+	// }
 
-	// Get the count of buckets with overflow
-	int bucketsWithOverflow = 0;
-	for (int i = 0; i < buckets; i++) {
-		if (info->hashTable[i] > recordsPerBlock) {
-			bucketsWithOverflow++;
-		}
-	}
+	// // Get the count of buckets with overflow
+	// int bucketsWithOverflow = 0;
+	// for (int i = 0; i < buckets; i++) {
+	// 	if (info->hashTable[i] > recordsPerBlock) {
+	// 		bucketsWithOverflow++;
+	// 	}
+	// }
 
-	// Get the count of blocks with overflow
-	int blocksWithOverflow = 0;
-	for (int i = 0; i < buckets; i++) {
-		if (info->hashTable[i] > recordsPerBlock) {
-			blocksWithOverflow += (info->hashTable[i] - recordsPerBlock) / recordsPerBlock;
-		}
-	}
+	// // Get the count of blocks with overflow
+	// int blocksWithOverflow = 0;
+	// for (int i = 0; i < buckets; i++) {
+	// 	if (info->hashTable[i] > recordsPerBlock) {
+	// 		blocksWithOverflow += (info->hashTable[i] - recordsPerBlock) / recordsPerBlock;
+	// 	}
+	// }
 
-	// Print statistics
-	printf("Number of buckets: %d\n", buckets);
-	printf("Number of records: %d\n", records);
-	printf("Number of blocks: %d\n", blocks);
-	printf("Number of records per block: %d\n", recordsPerBlock);
-	printf("Number of min records per bucket: %d\n", minRecordsPerBucket);
-	printf("Number of average records per bucket: %d\n", averageRecordsPerBucket);
-	printf("Number of max records per bucket: %d\n", maxRecordsPerBucket);
-	printf("Number of buckets with overflow: %d\n", bucketsWithOverflow);
-	printf("Number of blocks with overflow: %d\n", blocksWithOverflow);
-	printf("Number of blocks per bucket: %d\n", blocksPerBucket);
-	printf("Number of records per block per bucket: %d\n", recordsPerBlockPerBucket);
+	// // Print statistics
+	// printf("Number of buckets: %d\n", buckets);
+	// printf("Number of records: %d\n", records);
+	// printf("Number of blocks: %d\n", blocks);
+	// printf("Number of records per block: %d\n", recordsPerBlock);
+	// printf("Number of min records per bucket: %d\n", minRecordsPerBucket);
+	// printf("Number of average records per bucket: %d\n", averageRecordsPerBucket);
+	// printf("Number of max records per bucket: %d\n", maxRecordsPerBucket);
+	// printf("Number of buckets with overflow: %d\n", bucketsWithOverflow);
+	// printf("Number of blocks with overflow: %d\n", blocksWithOverflow);
+	// printf("Number of blocks per bucket: %d\n", blocksPerBucket);
+	// printf("Number of records per block per bucket: %d\n", recordsPerBlockPerBucket);
 
 	// Close file
 	code = BF_CloseFile(fileDesc);
@@ -445,4 +553,29 @@ int HashStatistics (char* filename) {
 	return 0;
 }
 
+MinMax findMinAndMax(int arr[], int N) {
+	MinMax result = malloc(sizeof(minmax));
+
+	int min = arr[0], max = arr[0];
+	// Traverse the given array
+    for (int i = 0; i < N; i++)
+    {
+        // If current element is smaller
+        // than min then update it
+        if (arr[i] < min)
+        {
+            min = arr[i];
+        }
+        // If current element is greater
+        // than max then update it
+        if (arr[i] > max)
+        {
+            max = arr[i];
+        }
+    }
+
+	result->max = max;
+	result->min = min;
+	return result;
+}
 

@@ -4,8 +4,9 @@
 #include <time.h>
 #include "bf.h"
 #include "ht_table.h"
+#include <assert.h>
 
-#define RECORDS_NUM 200 // you can change it if you want
+#define RECORDS_NUM 181 // you can change it if you want
 #define FILE_NAME "data.db"
 
 #define CALL_OR_DIE(call)     \
@@ -21,7 +22,9 @@ int main() {
   BF_Init(LRU);
 
   HT_CreateFile(FILE_NAME,10);
+
   HT_info* info = HT_OpenFile(FILE_NAME);
+  assert(info != NULL);
 
   Record record;
   srand(12569874);
@@ -36,6 +39,8 @@ int main() {
   int id = rand() % RECORDS_NUM;
   HT_GetAllEntries(info, &id);
 
+
   HT_CloseFile(info);
+  HashStatisticsHT(FILE_NAME);
   BF_Close();
 }

@@ -40,7 +40,8 @@ int main() {
   HT_GetAllEntries(info, &id);
 
   HT_CloseFile(info);
-  
+
   HashStatisticsHT(FILE_NAME);
+  
   BF_Close();
 }

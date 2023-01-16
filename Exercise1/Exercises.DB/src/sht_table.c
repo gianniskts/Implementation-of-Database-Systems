@@ -450,6 +450,7 @@ int HashStatisticsSHT(char* filename) {
 	// MIN,MID AND MAX NUMBER OF RECORDS in buckets
 	// Go through each bucket, get number of records
 	// all the chain through
+	
 
 	BF_Block* blockOfBucket;
 	BF_Block_Init(&blockOfBucket);

@@ -411,7 +411,6 @@ unsigned int hash_string(void* value) {
     return hash;
 }
 
-
 int HashStatisticsSHT(char* filename) {
 	// Open file
 	int fileDesc;
@@ -451,15 +450,13 @@ int HashStatisticsSHT(char* filename) {
 	// Go through each bucket, get number of records
 	// all the chain through
 	
-
 	BF_Block* blockOfBucket;
 	BF_Block_Init(&blockOfBucket);
 	printf("Buckets: %d\n", buckets);
 	// meso aritho blocks pou exei kathe bucket
 	int* blocksInBucket = malloc(buckets * sizeof(int));
 	int* recordsInBuckets = malloc(sizeof(int) * buckets);
-	
-	
+		
 	for(int i = 0; i < buckets; i++) {
 		// They begin with at least one block inside
 		blocksInBucket[i] = 1;

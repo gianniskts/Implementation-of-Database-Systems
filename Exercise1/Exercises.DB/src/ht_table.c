@@ -394,7 +394,6 @@ int HashStatisticsHT(char* filename) {
 	int* recordsInBuckets = malloc(sizeof(int) * buckets);
 	// They begin with at least one block inside
 	// int blocksInBucket[10];
-	
 
 	for(int i = 0; i < buckets; i++) {
 		blocksInBucket[i] = 1;
@@ -404,7 +403,6 @@ int HashStatisticsHT(char* filename) {
 
 	for(int i = 0; i < buckets; i++) {
 		int error;
-
 
 		int bucket = info->hashTable[i];
 		// printf("Currently at bucket: %d starting in block: %d\n", i, info->hashTable[i]);
@@ -477,72 +475,6 @@ int HashStatisticsHT(char* filename) {
 	free(blocksInBucket);
 	free(recordsInBuckets);
 	free(ptr);
-	// // Get number of records
-	// int records = 0;
-	// for (int i = 0; i < buckets; i++) {
-	// 	records += info->hashTable[i];
-	// }
-
-	// // Get number of blocks
-	// int blocks = blockCounter;
-
-	// // Get number of records per block
-	// int recordsPerBlock = (sizeof(char) * BF_BLOCK_SIZE  - sizeof(HT_block_info) )/ sizeof(Record);
-
-	// // Get number of blocks per bucket
-	// int blocksPerBucket = blocks / buckets;
-
-	// // Get number of records per block per bucket
-	// int recordsPerBlockPerBucket = recordsPerBlock / buckets;
-
-	// Get number of records per bucket
-	// int averageRecordsPerBucket = records / buckets;
-
-	// // Get Min records per bucket
-	// int minRecordsPerBucket = averageRecordsPerBucket;
-	// for (int i = 0; i < buckets; i++) {
-	// 	if (info->hashTable[i] < minRecordsPerBucket) {
-	// 		minRecordsPerBucket = info->hashTable[i];
-	// 	}
-	// }
-
-	// // Get Max records per bucket
-	// int maxRecordsPerBucket = averageRecordsPerBucket;
-	// for (int i = 0; i < buckets; i++) {
-	// 	if (info->hashTable[i] > maxRecordsPerBucket) {
-	// 		maxRecordsPerBucket = info->hashTable[i];
-	// 	}
-	// }
-
-	// // Get the count of buckets with overflow
-	// int bucketsWithOverflow = 0;
-	// for (int i = 0; i < buckets; i++) {
-	// 	if (info->hashTable[i] > recordsPerBlock) {
-	// 		bucketsWithOverflow++;
-	// 	}
-	// }
-
-	// // Get the count of blocks with overflow
-	// int blocksWithOverflow = 0;
-	// for (int i = 0; i < buckets; i++) {
-	// 	if (info->hashTable[i] > recordsPerBlock) {
-	// 		blocksWithOverflow += (info->hashTable[i] - recordsPerBlock) / recordsPerBlock;
-	// 	}
-	// }
-
-	// // Print statistics
-	// printf("Number of buckets: %d\n", buckets);
-	// printf("Number of records: %d\n", records);
-	// printf("Number of blocks: %d\n", blocks);
-	// printf("Number of records per block: %d\n", recordsPerBlock);
-	// printf("Number of min records per bucket: %d\n", minRecordsPerBucket);
-	// printf("Number of average records per bucket: %d\n", averageRecordsPerBucket);
-	// printf("Number of max records per bucket: %d\n", maxRecordsPerBucket);
-	// printf("Number of buckets with overflow: %d\n", bucketsWithOverflow);
-	// printf("Number of blocks with overflow: %d\n", blocksWithOverflow);
-	// printf("Number of blocks per bucket: %d\n", blocksPerBucket);
-	// printf("Number of records per block per bucket: %d\n", recordsPerBlockPerBucket);
-
 	
 	return 0;
 }

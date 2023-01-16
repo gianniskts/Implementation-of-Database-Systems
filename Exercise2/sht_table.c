@@ -399,3 +399,135 @@ unsigned int hash_string(void* value) {
 		hash = (hash << 5) + hash + *s;			// hash = (hash * 33) + *s. Το foo << 5 είναι γρηγορότερη εκδοχή του foo * 32.
     return hash;
 }
+
+int HashStatisticsSHT(char* filename) {
+	// Open file
+	int fileDesc;
+	BF_ErrorCode code = BF_OpenFile(filename, &fileDesc);
+	if (code != BF_OK) {
+		BF_PrintError(code);
+		return -1;
+	}
+
+	// Get block 0
+	BF_Block* block;
+	BF_Block_Init(&block);
+	code = BF_GetBlock(fileDesc, 0, block);
+	if (code != BF_OK) {
+		BF_PrintError(code);
+		return -1;
+	}
+
+	// Get block data
+	char* blockData = BF_Block_GetData(block);
+	SHT_info* info = (SHT_info*) blockData;
+
+	// Get number of blocks
+	int blockCounter;
+	code = BF_GetBlockCounter(fileDesc, &blockCounter);
+	if (code != BF_OK) {
+		BF_PrintError(code);
+		return -1;
+	}
+
+	// Get number of buckets
+	int buckets = info->numBuckets;
+	int recordsCount = 0;
+
+	// for each bucket:
+	// MIN,MID AND MAX NUMBER OF RECORDS in buckets
+	// Go through each bucket, get number of records
+	// all the chain through
+	
+	BF_Block* blockOfBucket;
+	BF_Block_Init(&blockOfBucket);
+	printf("Buckets: %d\n", buckets);
+	// meso aritho blocks pou exei kathe bucket
+	int* blocksInBucket = malloc(buckets * sizeof(int));
+	int* recordsInBuckets = malloc(sizeof(int) * buckets);
+		
+	for(int i = 0; i < buckets; i++) {
+		// They begin with at least one block inside
+		blocksInBucket[i] = 1;
+		// And no records to begin with
+		recordsInBuckets[i] = 0;
+	} 
+
+	for(int i = 0; i < buckets; i++) {
+		int error;
+		int bucket = info->hashTable[i];
+		error = TC(BF_GetBlock(fileDesc, bucket, blockOfBucket));
+		if (error != 0) return -1;
+
+		void* data = BF_Block_GetData(blockOfBucket);
+		SHT_block_info* blockInfo = (SHT_block_info*) data;
+		
+		recordsCount += blockInfo->currentRecords;
+		recordsInBuckets[i] += blockInfo->currentRecords;
+		while( true ) {
+			if (blockInfo->nextBlock == -1)
+				break;
+			else {
+				blocksInBucket[i]++;
+				error = TC(BF_UnpinBlock(blockOfBucket));
+				if (error != 0) return -1;
+
+				error = TC(BF_GetBlock(fileDesc, blockInfo->nextBlock, blockOfBucket));
+				if (error != 0) return -1;
+
+				data = BF_Block_GetData(blockOfBucket);
+				blockInfo = (SHT_block_info*) data;
+				recordsCount += blockInfo->currentRecords;
+				recordsInBuckets[i] += blockInfo->currentRecords;
+			}
+		}
+
+		BF_UnpinBlock(blockOfBucket);
+	}
+
+	BF_UnpinBlock(block);
+	BF_Block_Destroy(&blockOfBucket);
+	BF_Block_Destroy(&block);
+	
+	int totalNumberOfBlocks = 0;
+	for(int i = 0; i < buckets; i++)
+		totalNumberOfBlocks += blocksInBucket[i];
+	
+	printf("1. Blocks in the file: %d\n", blockCounter);
+	printf("2. Total number of records: %d\n", recordsCount);
+	printf("\t Average number of records per bucket: %d\n", recordsCount/buckets);
+	
+	MinMax ptr = findMinAndMax(recordsInBuckets, buckets);
+	printf("\t Min number of records in a block: %d\n", ptr->min);
+	printf("\t Max number of records in a block: %d\n", ptr->max);
+
+	// Plithos buckets pou exoun block yperxilisis
+	int nofBucketsWithOverflow = 0;
+	for(int i = 0; i < buckets; i++)
+		// If only one block has been allocated there is NO overflow
+		if (blocksInBucket[i] != 1) {
+			nofBucketsWithOverflow++;
+		}
+
+	printf("4. Total Number of buckets with overflow blocks: %d\n", nofBucketsWithOverflow);
+	
+	// kai posa block einai auta gia kathe block
+	for(int i = 0; i < buckets;i++) {
+		if (blocksInBucket[i] != 1) {
+			printf("\tBucket: %d has %d overflow blocks\n", i, blocksInBucket[i] - 1 );
+		}
+	}
+
+	free(blocksInBucket);
+	free(recordsInBuckets);
+	free(ptr);
+	
+	// Close file
+	code = BF_CloseFile(fileDesc);
+	if (code != BF_OK) {
+		BF_PrintError(code);
+		return -1;
+	}
+
+	return 0;
+}

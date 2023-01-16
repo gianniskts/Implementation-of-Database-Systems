@@ -21,6 +21,8 @@ typedef struct {
 
 unsigned int hash_string(void* value);
 
+int HashStatisticsSHT(char* filename);
+
 /*Η συνάρτηση SHT_CreateSecondaryIndex χρησιμοποιείται για τη δημιουργία
 και κατάλληλη αρχικοποίηση ενός αρχείου δευτερεύοντος κατακερματισμού με
 όνομα sfileName για το αρχείο πρωτεύοντος κατακερματισμού fileName. Σε

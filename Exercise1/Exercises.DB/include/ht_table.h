@@ -74,5 +74,6 @@ int HT_InsertEntry(HT_info* header_info, /*επικεφαλίδα του αρχ�
 int HT_GetAllEntries(HT_info* header_info, /*επικεφαλίδα του αρχείου*/
 	int* value /*τιμή του πεδίου-κλειδιού προς αναζήτηση*/);
 
+int HashStatistics (char* filename);
 
 #endif // HT_FILE_H

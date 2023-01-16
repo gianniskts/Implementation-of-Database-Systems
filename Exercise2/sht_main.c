@@ -46,6 +46,8 @@ int main() {
   
     SHT_SecondaryGetAllEntries(info,index_info,searchName);
 
+    HashStatistics(FILE_NAME);
+
     // Κλείνουμε το αρχείο κατακερματισμού και το δευτερεύον ευρετήριο
     SHT_CloseSecondaryIndex(index_info);
     HT_CloseFile(info);
